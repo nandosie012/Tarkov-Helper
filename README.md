@@ -80,7 +80,8 @@ Vul rechtsboven je level in. Vink voltooide quests af. "Voltooid + voorgaande" v
 - Meta heeft geen budget, maar betaalt geen 200k voor +2 ergonomie.
 - Budget is het beste dat binnen het bedrag past.
 - Een ladder vergelijkt de verticale recoil van het kale wapen, de standaard-preset, elk budget en meta. Klik een balk om die build te zien.
-- Een onderdelenbord toont het kale wapen met per gemonteerd onderdeel een afbeelding, het slot en waar het op zit. Dat is geen render: de game-data heeft geen montageposities, en er bestaat geen publieke dienst die willekeurige builds rendert. Klik een tegel om naar dat onderdeel in de tabel te springen.
+- Bovenaan staat het standaardwapen zoals de game hem rendert (de default preset). Van de berekende build zelf bestaat geen render: de game-data heeft geen montageposities.
+- Een onderdelenbord toont per gemonteerd onderdeel een afbeelding, het slot en waar het op zit. Klik een tegel om naar dat onderdeel in de tabel te springen.
 - Per onderdeel zie je recoil, ergonomie en waar je het het goedkoopst koopt (handelaar + LL of flea). Verder: presets die kant-en-klaar bij handelaren te koop zijn, en een ammo-suggestie per kaliber.
 - Optiek, tactische apparaten en magazijnen laat hij weg; die zijn persoonlijke voorkeur. Onderdelen die niet los te koop zijn (bijvoorbeeld pistoolslides) staan als "standaard" gemarkeerd.
 

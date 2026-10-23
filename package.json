@@ -15,7 +15,6 @@
     "node": ">=20"
   },
   "dependencies": {
-    "leaflet": "1.9.4",
-    "sharp": "0.33.5"
+    "leaflet": "1.9.4"
   }
 }

@@ -346,6 +346,8 @@ export function computeBuilds({ items, tr, traderById, categories }) {
       icon: realImage(g.iconLink),
       image: realImage(g.gridImageLink),
       image512: realImage(g.image512pxLink),
+      // the game's own render of the stock (default preset) gun; bare receiver when there is none
+      preview: realImage(items[p.defaultPreset]?.image512pxLink) ?? realImage(g.image512pxLink),
       wiki: g.wikiLink ?? null,
       category: cls,
       caliber: p.caliber ?? null,

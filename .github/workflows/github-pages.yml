@@ -31,12 +31,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # image shapes for the semi-render: only new images get downloaded and analysed
-      - uses: actions/cache@v4
-        with:
-          path: data/image-geo.json
-          key: image-geo-${{ github.run_id }}
-          restore-keys: image-geo-
       - run: npm run build
         env:
           GAME_MODE: ${{ vars.GAME_MODE || 'regular' }}
