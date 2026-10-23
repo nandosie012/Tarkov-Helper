@@ -19,6 +19,7 @@ import { unknownTemplates } from "./wikitext.mjs";
 import { fetchTarkovDev, wikiTitleFromUrl } from "./tarkovdev.mjs";
 import { parseQuestList, parseQuestPage, parseBossList, parseBossPage, parseMapPage } from "./parse-wiki.mjs";
 import { computeBuilds } from "./builds.mjs";
+import { imageGeometries } from "./image-geometry.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = path.join(root, "data");
@@ -579,6 +580,17 @@ log(`Ammo: ${ammo.length} soorten in ${calibers.length} kalibers`);
 const buildsStarted = Date.now();
 const builds = computeBuilds({ items: apiItems, tr, traderById, categories: api.items.itemCategories });
 log(`Builds: ${builds.weapons.length} wapens, meta + ${builds.caps.length} budgetniveaus (${((Date.now() - buildsStarted) / 1000).toFixed(1)}s)`);
+
+// image geometry for the semi-render (weapon + every part that appears in a build)
+{
+  await mkdir(dataDir, { recursive: true });
+  const urlOf = new Map([
+    ...builds.weapons.filter((w) => w.image512).map((w) => [w.id, w.image512]),
+    ...Object.entries(builds.parts).filter(([, p]) => p.image).map(([id, p]) => [id, p.image]),
+  ]);
+  const geo = await imageGeometries([...urlOf.values()], path.join(dataDir, "image-geo.json"), { log });
+  builds.geo = Object.fromEntries([...urlOf].filter(([, url]) => geo.has(url)).map(([id, url]) => [id, geo.get(url)]));
+}
 
 // ---------------------------------------------------------------------------
 // 4. Bosses

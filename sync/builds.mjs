@@ -35,6 +35,8 @@ const SLOT_LABEL = [
 const slotLabel = (nameId) => SLOT_LABEL.find(([re]) => re.test(nameId))?.[1] ?? nameId.replace(/^mod_/, "");
 
 const SKIP_CATEGORIES = new Set(["Grenade launcher", "Rocket Launcher"]);
+// tarkov.dev serves a black placeholder for items it has no render of yet
+const realImage = (url) => (url && !url.includes("unknown-item") ? url : null);
 
 export function computeBuilds({ items, tr, traderById, categories }) {
   const recoilOf = (it) => it?.properties?.recoilModifier ?? 0;
@@ -341,9 +343,9 @@ export function computeBuilds({ items, tr, traderById, categories }) {
       id: g.id,
       name: tr.items(g.name, g.normalizedName),
       shortName: tr.items(g.shortName, ""),
-      icon: g.iconLink ?? null,
-      image: g.gridImageLink ?? null,
-      image512: g.image512pxLink ?? null,
+      icon: realImage(g.iconLink),
+      image: realImage(g.gridImageLink),
+      image512: realImage(g.image512pxLink),
       wiki: g.wikiLink ?? null,
       category: cls,
       caliber: p.caliber ?? null,
@@ -363,8 +365,8 @@ export function computeBuilds({ items, tr, traderById, categories }) {
     parts[id] = {
       name: tr.items(it.name, it.normalizedName),
       shortName: tr.items(it.shortName, ""),
-      icon: it.iconLink ?? null,
-      image: it.image512pxLink ?? null,
+      icon: realImage(it.iconLink),
+      image: realImage(it.image512pxLink),
       wiki: it.wikiLink ?? null,
     };
   }

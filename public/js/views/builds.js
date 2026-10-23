@@ -1,5 +1,6 @@
 import { store, go } from "../app.js";
-import { html, norm, rub, debounce } from "../util.js";
+import { html, raw, norm, rub, debounce } from "../util.js";
+import { layoutBuild, layoutSvg } from "../semirender.js";
 
 const PREF_KEY = "tarkov-helper-builds";
 const CLASS_ORDER = ["Assault rifle", "Assault carbine", "SMG", "Marksman rifle", "Sniper rifle", "Machinegun", "Shotgun", "Handgun", "Revolver", "Overig"];
@@ -86,13 +87,15 @@ export async function mount(el, route) {
       renderDetail(false);
       return;
     }
-    const tile = e.target.closest("[data-tile]");
-    if (tile) {
-      const row = el.querySelector(`.parts-table tr[data-row="${tile.dataset.tile}"]`);
+    // a tile on the parts board or a part in the semi-render: jump to its row in the table
+    const hit = e.target.closest("[data-tile], [data-part]");
+    if (hit) {
+      const idx = hit.dataset.tile ?? hit.dataset.part;
+      const row = el.querySelector(`.parts-table tr[data-row="${idx}"]`);
       if (!row) return;
       for (const r of el.querySelectorAll(".parts-table tr.flash")) r.classList.remove("flash");
       for (const t of el.querySelectorAll(".tile.on")) t.classList.remove("on");
-      tile.classList.add("on");
+      el.querySelector(`.tile[data-tile="${idx}"]`)?.classList.add("on");
       row.classList.add("flash");
       row.scrollIntoView({ block: "center", behavior: "smooth" });
     }
@@ -195,6 +198,7 @@ function renderDetail(resetScroll) {
             <div class="stat"><b>${rub(build.cost)}</b><span>Onderdelen</span></div>
             <div class="stat"><b>${w.offer ? rub(w.offer.price) : "–"}</b><span>Wapen (kaal)${w.offer ? ` · ${w.offer.source}` : ""}</span></div>
           </div>
+          ${semiRender(w, build)}
           ${partsBoard(w, build)}
           ${partsTable(build)}
           <p class="faint" style="font-size:12px;margin:10px 0 0">Vergeleken met ${w.default ? "het standaardwapen" : "het kale wapen"}. Optiek, tactische apparaten en magazijn zijn naar keuze en niet meegerekend.</p>`
@@ -229,6 +233,22 @@ function statTile(label, value, ref, lowerIsBetter) {
   const diff = ref ? Math.round(((value - ref) / ref) * 100) : 0;
   const better = lowerIsBetter ? diff < 0 : diff > 0;
   return html`<div class="stat"><b>${value}</b><span>${label}${ref != null && diff !== 0 ? html` · <em class="${better ? "delta-good" : "delta-bad"}">${diff > 0 ? "+" : ""}${diff}%</em>` : ""}</span></div>`;
+}
+
+/** Approximate side view composed from the part images (see semirender.js); empty when geometry is missing. */
+function semiRender(w, build) {
+  if (!data.geo?.[w.id]) return "";
+  const names = {};
+  for (const p of build.parts) names[p.id] = data.parts[p.id]?.name ?? "";
+  const layout = layoutBuild(w, build.parts, data.geo, names);
+  if (!layout) return "";
+  const href = (id) => (id === w.id ? w.image512 : data.parts[id]?.image ?? "");
+  const title = (n) => (n.index == null ? `${w.name} (kaal)` : `${build.parts[n.index].slot}: ${names[n.id]}`);
+  const { svg } = layoutSvg(layout, data.geo, href, { width: 900, title });
+  return html`<figure class="semi">
+    ${raw(svg)}
+    <figcaption><span class="chip">beta</span> Semi-render, samengesteld uit de losse onderdeelafbeeldingen. Posities en formaten zijn geschat, dus het zal niet altijd kloppen. Klik een onderdeel voor de details.</figcaption>
+  </figure>`;
 }
 
 const fmtRecoil = (r) => `${r > 0 ? "+" : ""}${Math.round(r * 1000) / 10}%`;
