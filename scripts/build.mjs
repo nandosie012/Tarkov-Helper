@@ -58,10 +58,28 @@ meta.build = {
 };
 await writeFile(path.join(dist, "data", "meta.json"), JSON.stringify(meta));
 
+// Cache-busting: static hosts cache JS/CSS for minutes (GitHub Pages: 10), so a returning visitor could mix
+// fresh data with old modules. Every build gets its own ?v= on the stylesheet, the entry script and all
+// relative module imports, so a new deploy is picked up as one consistent set.
+const version = Date.now().toString(36);
+const jsDir = path.join(dist, "js");
+for (const entry of await readdir(jsDir, { withFileTypes: true, recursive: true })) {
+  if (!entry.isFile() || !entry.name.endsWith(".js")) continue;
+  const file = path.join(entry.parentPath ?? entry.path, entry.name);
+  const src = await readFile(file, "utf8");
+  await writeFile(file, src.replace(/(from\s+["'])(\.{1,2}\/[^"'?]+\.js)(["'])/g, `$1$2?v=${version}$3`));
+}
+
 // mark the page as static so the app skips the local server's API
 const indexFile = path.join(dist, "index.html");
 const index = await readFile(indexFile, "utf8");
-await writeFile(indexFile, index.replace("<head>", `<head>\n  <meta name="th-mode" content="static">`));
+await writeFile(
+  indexFile,
+  index
+    .replace("<head>", `<head>\n  <meta name="th-mode" content="static">`)
+    .replace('href="css/app.css"', `href="css/app.css?v=${version}"`)
+    .replace('src="js/app.js"', `src="js/app.js?v=${version}"`)
+);
 
 // GitHub Pages: serve files as-is (no Jekyll processing)
 await writeFile(path.join(dist, ".nojekyll"), "");
