@@ -313,10 +313,10 @@ export function itemsCard(q) {
   return html`
     <div class="card highlight">
       <h3>Benodigde items <span class="count">${q.items.length}</span></h3>
-      <table class="itable">
+      <div class="table-scroll"><table class="itable">
         <thead><tr><th>Item</th><th>Aantal</th><th>Type</th><th>Prijs</th></tr></thead>
         <tbody>${q.items.map(itemRow)}</tbody>
-      </table>
+      </table></div>
     </div>`;
 }
 

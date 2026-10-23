@@ -74,6 +74,15 @@ Vul rechtsboven je level in. Vink voltooide quests af. "Voltooid + voorgaande" v
 
 **Ammo.** Per kaliber een grafiek met penetratie tegen damage (hagel: pellets × damage), met lijnen voor armor-klasse 1–6. Shift-klik vergelijkt tot 3 kalibers. Hover geeft alle stats; de tabel eronder heeft tier, armor damage, fragmentatie, snelheid, recoil, effectiviteit per armor-klasse, waar te koop (handelaar, LL, quest-lock) en flea-prijs. Zoeken werkt over alle kalibers. Tier en klasse-effectiviteit zijn een vuistregel (penetratie vs klasse × 10).
 
+**Builds.** Per wapen een meta-build en budget-builds (≤ 25k, 50k, 100k en 200k ₽ aan onderdelen), berekend uit de game-data. Er bestaat geen open, actuele bron met community-builds, dus de helper rekent ze zelf uit en ze lopen automatisch mee met elke patch.
+
+- De optimizer loopt de slot-boom van het wapen af en kiest per slot het onderdeel met de beste verhouding tussen recoil en ergonomie. Recoil weegt het zwaarst. Conflicterende onderdelen vermijdt hij.
+- Meta heeft geen budget, maar betaalt geen 200k voor +2 ergonomie.
+- Budget is het beste dat binnen het bedrag past.
+- Een ladder vergelijkt de verticale recoil van het kale wapen, de standaard-preset, elk budget en meta. Klik een balk om die build te zien.
+- Per onderdeel zie je recoil, ergonomie en waar je het het goedkoopst koopt (handelaar + LL of flea). Verder: presets die kant-en-klaar bij handelaren te koop zijn, en een ammo-suggestie per kaliber.
+- Optiek, tactische apparaten en magazijnen laat hij weg; die zijn persoonlijke voorkeur. Onderdelen die niet los te koop zijn (bijvoorbeeld pistoolslides) staan als "standaard" gemarkeerd.
+
 ## Voortgang
 
 Wordt opgeslagen in `data/progress.json` (en als back-up in de browser). Op de pagina **Data** kun je exporteren, importeren en wissen.
@@ -142,8 +151,9 @@ Het gratis Hobby-plan van Vercel is alleen voor niet-commercieel gebruik.
 | `sync/index.mjs` | Haalt alles op en voegt het samen tot `data/*.json` |
 | `sync/wiki.mjs`, `sync/wikitext.mjs`, `sync/parse-wiki.mjs` | MediaWiki-client en wikitext-parsers (infobox, tabellen, lijsten, galerijen, veilige HTML) |
 | `sync/tarkovdev.mjs` | json.tarkov.dev en de kaartconfiguratie |
+| `sync/builds.mjs` | Build-optimizer (meta en budget) over de slot-bomen van de wapens |
 | `public/` | Frontend (vanilla JS-modules, Leaflet), alle paden relatief |
-| `data/` | Gegenereerd: `quests.json`, `items.json`, `bosses.json`, `maps.json`, `ammo.json`, `meta.json`, `maps/*.svg`, `progress.json` |
+| `data/` | Gegenereerd: `quests.json`, `items.json`, `bosses.json`, `maps.json`, `ammo.json`, `builds.json`, `meta.json`, `maps/*.svg`, `progress.json` |
 | `scripts/build.mjs` | Statische build naar `dist/` (sync + frontend + data + Leaflet) |
 | `scripts/serve-static.mjs` | Preview van `dist/` zoals een statische host, optioneel onder een subpad |
 | `.github/workflows/`, `vercel.json`, `netlify.toml`, `.node-version` | Hosting en geplande rebuilds |

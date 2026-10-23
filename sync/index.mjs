@@ -18,6 +18,7 @@ import { getWikitext, getPages, getImageUrls, wikiUrl, looseKey, normTitle } fro
 import { unknownTemplates } from "./wikitext.mjs";
 import { fetchTarkovDev, wikiTitleFromUrl } from "./tarkovdev.mjs";
 import { parseQuestList, parseQuestPage, parseBossList, parseBossPage, parseMapPage } from "./parse-wiki.mjs";
+import { computeBuilds } from "./builds.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = path.join(root, "data");
@@ -575,6 +576,10 @@ const calibers = [...new Set(ammo.map((a) => a.caliber))].map((code) => {
 });
 log(`Ammo: ${ammo.length} soorten in ${calibers.length} kalibers`);
 
+const buildsStarted = Date.now();
+const builds = computeBuilds({ items: apiItems, tr, traderById, categories: api.items.itemCategories });
+log(`Builds: ${builds.weapons.length} wapens, meta + ${builds.caps.length} budgetniveaus (${((Date.now() - buildsStarted) / 1000).toFixed(1)}s)`);
+
 // ---------------------------------------------------------------------------
 // 4. Bosses
 // ---------------------------------------------------------------------------
@@ -875,6 +880,7 @@ const meta = {
     mobs: bossesOut.length,
     maps: mapsOut.length,
     ammo: ammo.length,
+    builds: builds.weapons.length,
     wikiImages: imageUrls.size,
   },
   questsWikiOnly: unmatchedWiki,
@@ -889,6 +895,7 @@ await writeJson("items.json", Object.fromEntries(items));
 await writeJson("bosses.json", bossesOut);
 await writeJson("maps.json", mapsOut);
 await writeJson("ammo.json", { calibers, ammo });
+await writeJson("builds.json", builds);
 await writeJson("meta.json", meta);
 log("Klaar.", JSON.stringify(meta.counts));
 if (warnings.length) log(`${warnings.length} waarschuwingen (zie data/meta.json)`);
