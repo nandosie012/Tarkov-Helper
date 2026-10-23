@@ -1,0 +1,14 @@
+services:
+  tarkov-helper:
+    build: .
+    container_name: tarkov-helper
+    ports:
+      - "127.0.0.1:3311:3311"
+    environment:
+      # regular (PvP) of pve
+      GAME_MODE: regular
+      # automatisch opnieuw synchroniseren (uren, 0 = uit)
+      SYNC_INTERVAL_HOURS: 6
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

@@ -1,0 +1,20 @@
+{
+  "name": "tarkov-helper",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Lokale Escape from Tarkov helper: quests, quest-items, bosses en een interactieve kaart. Data uit de EFT-wiki en json.tarkov.dev.",
+  "scripts": {
+    "sync": "node sync/index.mjs",
+    "build": "node scripts/build.mjs",
+    "preview:static": "node scripts/serve-static.mjs",
+    "start": "node server.mjs",
+    "dev": "node --watch-path=server.mjs server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4"
+  }
+}
