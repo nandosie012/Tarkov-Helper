@@ -1,4 +1,4 @@
-# Build + deploy naar GitHub Pages, elke 6 uur opnieuw met verse data.
+# Build + deploy naar GitHub Pages, elk uur opnieuw met verse data (flea-prijzen veranderen snel).
 # Eenmalig nodig: Settings → Pages → Source = "GitHub Actions".
 # Host je ergens anders (Vercel, Cloudflare, Netlify)? Zet dan de repository-variabele DEPLOY_TARGET
 # op die naam (Settings → Secrets and variables → Actions → Variables); deze workflow slaat zich dan over.
@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:

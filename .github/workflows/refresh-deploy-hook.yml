@@ -1,12 +1,12 @@
 # Voor Vercel, Cloudflare Pages of Netlify: die bouwen zelf vanuit deze repo (npm run build).
-# Deze workflow laat ze elke 6 uur opnieuw bouwen, zodat de data vers blijft.
+# Deze workflow laat ze elk uur opnieuw bouwen, zodat de data vers blijft.
 # Zet de deploy hook-URL van je platform als secret DEPLOY_HOOK_URL
 # (Settings → Secrets and variables → Actions → Secrets). Zonder secret doet hij niets.
 name: Verse data (deploy hook)
 
 on:
   schedule:
-    - cron: "17 */6 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:

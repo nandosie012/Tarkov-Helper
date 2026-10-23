@@ -89,7 +89,7 @@ Vul rechtsboven je level in. Vink voltooide quests af. "Voltooid + voorgaande" v
 - Per item: flea-prijs (laagste en 24 uur gemiddeld), het aantal aanbiedingen, de leeftijd van de prijs, de beste handelaar, winst per stuk en per slot, en de marge.
 - Filters op minimale winst, minimaal aanbod en handelaar.
 - Zoek je een item op, dan zie je het ook zonder winst, handig om te kijken waar je iets het best verkoopt.
-- Let op: prijzen veranderen snel en de site ververst elke 6 uur. Check de prijs in de game voordat je koopt. Sommige items (keycards, sleutels) kun je pas op een hoger flea-level kopen; dat staat erbij.
+- Let op: prijzen veranderen snel. tarkov.dev scant de flea ongeveer elke 2 uur rond en de online site ververst elk uur, dus een prijs is daar tot ongeveer 3 uur oud. Check de prijs in de game voordat je koopt. Sommige items (keycards, sleutels) kun je pas op een hoger flea-level kopen; dat staat erbij.
 
 ## Voortgang
 
@@ -97,7 +97,7 @@ Wordt opgeslagen in `data/progress.json` (en als back-up in de browser). Op de p
 
 ## Online zetten (gratis)
 
-Online draait de helper als statische site: geen server, alleen HTML, JavaScript en de JSON-data. `npm run build` haalt verse data op en zet alles in `dist/`. Een geplande build (elke 6 uur) houdt de data actueel.
+Online draait de helper als statische site: geen server, alleen HTML, JavaScript en de JSON-data. `npm run build` haalt verse data op en zet alles in `dist/`. Een geplande build (elk uur) houdt de data actueel.
 
 Verschillen met lokaal:
 
@@ -122,7 +122,7 @@ Voor alle opties hieronder moet de map in een GitHub-repository staan. Daarvoor 
 
 1. Push de repository naar GitHub, met `main` als branch.
 2. **Settings → Pages → Build and deployment → Source:** kies "GitHub Actions". Op een gratis GitHub-account werkt Pages alleen voor een **publieke** repository.
-3. **Actions → GitHub Pages → Run workflow** voor de eerste keer (of opnieuw starten als de eerste run faalde omdat Pages nog uit stond). Daarna bouwt hij bij elke push en elke 6 uur.
+3. **Actions → GitHub Pages → Run workflow** voor de eerste keer (of opnieuw starten als de eerste run faalde omdat Pages nog uit stond). Daarna bouwt hij bij elke push en elk uur.
 4. Optioneel: PvE-data via de repository-variabele `GAME_MODE` = `pve` (**Settings → Secrets and variables → Actions → Variables**).
 
 GitHub Pages is de standaard. Host je bij Vercel, Cloudflare of Netlify, zet dan de variabele `DEPLOY_TARGET` op die naam (bijvoorbeeld `vercel`); de Pages-workflow slaat zich dan over.
@@ -133,7 +133,7 @@ De site staat dan op `https://<gebruiker>.github.io/<repo>/`. Workflow: `.github
 
 1. Importeer de repository in Vercel. `vercel.json` regelt de rest: build `npm run build`, output `dist`.
 2. **Project → Settings → Git → Deploy Hooks:** maak een hook aan voor `main` en kopieer de URL.
-3. Zet die URL in GitHub als secret `DEPLOY_HOOK_URL` (**Settings → Secrets and variables → Actions → Secrets**). De workflow `.github/workflows/refresh-deploy-hook.yml` laat Vercel dan elke 6 uur opnieuw bouwen.
+3. Zet die URL in GitHub als secret `DEPLOY_HOOK_URL` (**Settings → Secrets and variables → Actions → Secrets**). De workflow `.github/workflows/refresh-deploy-hook.yml` laat Vercel dan elk uur opnieuw bouwen.
 
 Het gratis Hobby-plan van Vercel is alleen voor niet-commercieel gebruik.
 
