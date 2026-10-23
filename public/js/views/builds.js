@@ -84,6 +84,17 @@ export async function mount(el, route) {
       state.pick = pick.dataset.pick;
       savePrefs();
       renderDetail(false);
+      return;
+    }
+    const tile = e.target.closest("[data-tile]");
+    if (tile) {
+      const row = el.querySelector(`.parts-table tr[data-row="${tile.dataset.tile}"]`);
+      if (!row) return;
+      for (const r of el.querySelectorAll(".parts-table tr.flash")) r.classList.remove("flash");
+      for (const t of el.querySelectorAll(".tile.on")) t.classList.remove("on");
+      tile.classList.add("on");
+      row.classList.add("flash");
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
     }
   });
   update(route);
@@ -184,6 +195,7 @@ function renderDetail(resetScroll) {
             <div class="stat"><b>${rub(build.cost)}</b><span>Onderdelen</span></div>
             <div class="stat"><b>${w.offer ? rub(w.offer.price) : "–"}</b><span>Wapen (kaal)${w.offer ? ` · ${w.offer.source}` : ""}</span></div>
           </div>
+          ${partsBoard(w, build)}
           ${partsTable(build)}
           <p class="faint" style="font-size:12px;margin:10px 0 0">Vergeleken met ${w.default ? "het standaardwapen" : "het kale wapen"}. Optiek, tactische apparaten en magazijn zijn naar keuze en niet meegerekend.</p>`
         : html`<p class="muted">Geen werkende build binnen dit budget: de verplichte onderdelen kosten samen meer. Kies een hoger budget.</p>`}
@@ -219,17 +231,49 @@ function statTile(label, value, ref, lowerIsBetter) {
   return html`<div class="stat"><b>${value}</b><span>${label}${ref != null && diff !== 0 ? html` · <em class="${better ? "delta-good" : "delta-bad"}">${diff > 0 ? "+" : ""}${diff}%</em>` : ""}</span></div>`;
 }
 
+const fmtRecoil = (r) => `${r > 0 ? "+" : ""}${Math.round(r * 1000) / 10}%`;
+const fmtErgo = (e) => `${e > 0 ? "+" : ""}${Math.round(e * 10) / 10}`;
+
+/**
+ * The bare gun plus one image tile per mounted part. Not a render: the game data has no mount
+ * positions, so the parts are laid out side by side, in the same order as the parts table.
+ */
+function partsBoard(w, build) {
+  if (!build.parts.length) return "";
+  const parents = [];
+  const tiles = build.parts.map((p, i) => {
+    parents[p.depth] = p;
+    const parent = p.depth ? parents[p.depth - 1] : null;
+    return { p, i, parent, it: data.parts[p.id] ?? {} };
+  });
+  return html`<div class="board">
+    <figure class="board-gun">
+      ${w.image512 ? html`<img src="${w.image512}" alt="${w.name}, kaal" loading="lazy" referrerpolicy="no-referrer">` : html`<span class="icon-ph"></span>`}
+      <figcaption>${w.shortName || w.name} · kaal wapen</figcaption>
+    </figure>
+    <div class="board-tiles">${tiles.map(({ p, i, parent, it }) => html`
+      <button class="tile" data-tile="${i}" title="${it.name}">
+        <span class="tile-img">${it.image || it.icon ? html`<img src="${it.image || it.icon}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}</span>
+        <span class="tile-slot">${p.slot}${parent ? html` <span class="faint">· op ${data.parts[parent.id]?.shortName || parent.slot}</span>` : ""}</span>
+        <span class="tile-name">${it.shortName || it.name}</span>
+        <span class="tile-stats">${p.recoil ? fmtRecoil(p.recoil) : "0%"} recoil · ${p.ergo ? fmtErgo(p.ergo) : "0"} ergo</span>
+      </button>`)}
+    </div>
+    <p class="faint board-note">Losse onderdelen van deze build, geen gerenderde weergave: de game-data bevat geen montageposities. Klik een onderdeel voor de details in de tabel.</p>
+  </div>`;
+}
+
 function partsTable(build) {
   return html`<div class="table-scroll"><table class="itable parts-table">
     <thead><tr><th>Slot</th><th>Onderdeel</th><th>Recoil</th><th>Ergo</th><th>Kopen</th></tr></thead>
-    <tbody>${build.parts.map((p) => {
+    <tbody>${build.parts.map((p, i) => {
       const it = data.parts[p.id] ?? {};
-      return html`<tr>
+      return html`<tr data-row="${i}">
         <td class="slot-cell" style="padding-left:${8 + p.depth * 16}px">${p.depth ? html`<span class="faint">└ </span>` : ""}${p.slot}</td>
         <td><div class="iname">${it.icon ? html`<img class="icon-img sm" src="${it.icon}" alt="" loading="lazy" referrerpolicy="no-referrer">` : html`<span class="icon-ph sm"></span>`}
           ${it.wiki ? html`<a href="${it.wiki}" target="_blank" rel="noopener" style="color:var(--text)">${it.name}</a>` : it.name}</div></td>
-        <td class="num">${p.recoil ? `${p.recoil > 0 ? "+" : ""}${Math.round(p.recoil * 1000) / 10}%` : html`<span class="faint">0</span>`}</td>
-        <td class="num">${p.ergo ? `${p.ergo > 0 ? "+" : ""}${Math.round(p.ergo * 10) / 10}` : html`<span class="faint">0</span>`}</td>
+        <td class="num">${p.recoil ? fmtRecoil(p.recoil) : html`<span class="faint">0</span>`}</td>
+        <td class="num">${p.ergo ? fmtErgo(p.ergo) : html`<span class="faint">0</span>`}</td>
         <td class="price">${p.stock ? html`<span title="Niet los te koop: zit op het standaardwapen">standaard</span>` : html`${p.source}${p.level ? ` LL${p.level}` : ""}${p.quest ? " (na quest)" : ""}`} · ${rub(p.price)}</td>
       </tr>`;
     })}</tbody>

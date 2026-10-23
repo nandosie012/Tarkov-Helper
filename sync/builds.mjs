@@ -343,6 +343,7 @@ export function computeBuilds({ items, tr, traderById, categories }) {
       shortName: tr.items(g.shortName, ""),
       icon: g.iconLink ?? null,
       image: g.gridImageLink ?? null,
+      image512: g.image512pxLink ?? null,
       wiki: g.wikiLink ?? null,
       category: cls,
       caliber: p.caliber ?? null,
@@ -359,7 +360,13 @@ export function computeBuilds({ items, tr, traderById, categories }) {
   const parts = {};
   for (const id of usedItems) {
     const it = items[id];
-    parts[id] = { name: tr.items(it.name, it.normalizedName), shortName: tr.items(it.shortName, ""), icon: it.iconLink ?? null, wiki: it.wikiLink ?? null };
+    parts[id] = {
+      name: tr.items(it.name, it.normalizedName),
+      shortName: tr.items(it.shortName, ""),
+      icon: it.iconLink ?? null,
+      image: it.image512pxLink ?? null,
+      wiki: it.wikiLink ?? null,
+    };
   }
   weapons.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
   return { caps: BUDGET_CAPS, ergoWeight: ERGO_WEIGHT, weapons, parts };
