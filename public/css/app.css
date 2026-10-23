@@ -390,6 +390,10 @@ details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 .ammo-pick { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel-2); color: var(--text); font-size: 13px; }
 .ammo-pick:hover { border-color: var(--accent-dim); text-decoration: none; }
 
+/* ---------- trades ---------- */
+.trade-table td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trade-table td:first-child { min-width: 240px; }
+
 /* ---------- status ---------- */
 .log { background: #0a0c0d; border: 1px solid var(--border); border-radius: 5px; padding: 10px; font: 12px/1.5 var(--mono); color: #b6bcc1; max-height: 320px; overflow: auto; white-space: pre-wrap; }
 .kv { display: grid; grid-template-columns: 200px 1fr; gap: 4px 14px; }

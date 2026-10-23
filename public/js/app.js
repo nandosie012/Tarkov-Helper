@@ -6,6 +6,7 @@ import * as bossesView from "./views/bosses.js";
 import * as statusView from "./views/status.js";
 import * as ammoView from "./views/ammo.js";
 import * as buildsView from "./views/builds.js";
+import * as tradesView from "./views/trades.js";
 
 // ---------------------------------------------------------------------------
 // Data store
@@ -24,6 +25,7 @@ export const store = {
   mapById: new Map(),
   ammo: null, // loaded on first visit of the ammo page
   builds: null, // loaded on first visit of the builds page
+  trades: null, // loaded on first visit of the trade page
   status: null,
   progress: { done: {}, objectives: {}, owned: {}, level: null },
 };
@@ -151,7 +153,7 @@ export function questState(quest) {
 // Router
 // ---------------------------------------------------------------------------
 
-const views = { quests: questsView, items: itemsView, map: mapView, bosses: bossesView, ammo: ammoView, builds: buildsView, status: statusView };
+const views = { quests: questsView, items: itemsView, map: mapView, bosses: bossesView, ammo: ammoView, builds: buildsView, trades: tradesView, status: statusView };
 let current = null;
 
 export function parseHash() {
@@ -270,6 +272,7 @@ export async function reloadData() {
   await loadData();
   store.ammo = null;
   store.builds = null;
+  store.trades = null;
   current?.view.unmount?.();
   current = null;
   route();

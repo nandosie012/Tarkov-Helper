@@ -19,6 +19,7 @@ import { unknownTemplates } from "./wikitext.mjs";
 import { fetchTarkovDev, wikiTitleFromUrl } from "./tarkovdev.mjs";
 import { parseQuestList, parseQuestPage, parseBossList, parseBossPage, parseMapPage } from "./parse-wiki.mjs";
 import { computeBuilds } from "./builds.mjs";
+import { computeTrades } from "./trades.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = path.join(root, "data");
@@ -579,6 +580,9 @@ log(`Ammo: ${ammo.length} soorten in ${calibers.length} kalibers`);
 const buildsStarted = Date.now();
 const builds = computeBuilds({ items: apiItems, tr, traderById, categories: api.items.itemCategories });
 log(`Builds: ${builds.weapons.length} wapens, meta + ${builds.caps.length} budgetniveaus (${((Date.now() - buildsStarted) / 1000).toFixed(1)}s)`);
+
+const trades = computeTrades({ items: apiItems, tr, traderById });
+log(`Handel: ${trades.length} items met flea- en handelaarsprijs, ${trades.filter((t) => t.profit > 0).length} met winst`);
 // ---------------------------------------------------------------------------
 // 4. Bosses
 // ---------------------------------------------------------------------------
@@ -880,6 +884,7 @@ const meta = {
     maps: mapsOut.length,
     ammo: ammo.length,
     builds: builds.weapons.length,
+    tradeProfits: trades.filter((t) => t.profit > 0).length,
     wikiImages: imageUrls.size,
   },
   questsWikiOnly: unmatchedWiki,
@@ -895,6 +900,7 @@ await writeJson("bosses.json", bossesOut);
 await writeJson("maps.json", mapsOut);
 await writeJson("ammo.json", { calibers, ammo });
 await writeJson("builds.json", builds);
+await writeJson("trades.json", { fleaMinLevel: api.items.fleaMarket?.minPlayerLevel ?? 15, items: trades });
 await writeJson("meta.json", meta);
 log("Klaar.", JSON.stringify(meta.counts));
 if (warnings.length) log(`${warnings.length} waarschuwingen (zie data/meta.json)`);

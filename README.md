@@ -85,6 +85,12 @@ Vul rechtsboven je level in. Vink voltooide quests af. "Voltooid + voorgaande" v
 - Per onderdeel zie je recoil, ergonomie en waar je het het goedkoopst koopt (handelaar + LL of flea). Verder: presets die kant-en-klaar bij handelaren te koop zijn, en een ammo-suggestie per kaliber.
 - Optiek, tactische apparaten en magazijnen laat hij weg; die zijn persoonlijke voorkeur. Onderdelen die niet los te koop zijn (bijvoorbeeld pistoolslides) staan als "standaard" gemarkeerd.
 
+**Handel.** Items die een handelaar duurder terugkoopt dan ze op de flea kosten: koop op de flea (laagste aanbieding), verkoop aan de handelaar.
+- Per item: flea-prijs (laagste en 24 uur gemiddeld), het aantal aanbiedingen, de leeftijd van de prijs, de beste handelaar, winst per stuk en per slot, en de marge.
+- Filters op minimale winst, minimaal aanbod en handelaar.
+- Zoek je een item op, dan zie je het ook zonder winst, handig om te kijken waar je iets het best verkoopt.
+- Let op: prijzen veranderen snel en de site ververst elke 6 uur. Check de prijs in de game voordat je koopt. Sommige items (keycards, sleutels) kun je pas op een hoger flea-level kopen; dat staat erbij.
+
 ## Voortgang
 
 Wordt opgeslagen in `data/progress.json` (en als back-up in de browser). Op de pagina **Data** kun je exporteren, importeren en wissen.

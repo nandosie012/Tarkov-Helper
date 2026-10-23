@@ -28,7 +28,7 @@ if (!args.has("--skip-sync")) {
   }
 }
 
-const required = ["quests.json", "items.json", "bosses.json", "maps.json", "ammo.json", "builds.json", "meta.json"];
+const required = ["quests.json", "items.json", "bosses.json", "maps.json", "ammo.json", "builds.json", "trades.json", "meta.json"];
 for (const file of required) {
   try {
     await readFile(path.join(dataDir, file));
