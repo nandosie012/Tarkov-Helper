@@ -792,10 +792,11 @@ for (const m of apiMaps) {
       return {
         id: e.id,
         name,
-        faction: e.faction ?? null,
+        // game data leaves the faction empty on some map variants; the wiki table says Scav / PMC / All
+        faction: e.faction ?? { scav: "scav", pmc: "pmc", all: "shared" }[looseKey(w?.faction ?? "")] ?? null,
         position: point(e.position),
         outline: outline(e.outline),
-        wiki: w ? { requirementsHtml: w.requirementsHtml, notesHtml: w.notesHtml, alwaysAvailable: w.alwaysAvailable, singleUse: w.singleUse } : null,
+        wiki: w ? { faction: w.faction || null, requirementsHtml: w.requirementsHtml, notesHtml: w.notesHtml, alwaysAvailable: w.alwaysAvailable, singleUse: w.singleUse } : null,
       };
     }),
     transits: (m.transits ?? []).map((t) => ({
@@ -818,6 +819,21 @@ for (const m of apiMaps) {
     wikiExtracts,
   });
 }
+// variants (Night Factory, Ground Zero 21+) share extracts with their base map: copy the faction from the
+// extract with the same name at (nearly) the same spot
+for (const m of mapsOut.filter((x) => x.variant)) {
+  const base = mapsOut.find((x) => x.id === m.family);
+  for (const e of m.extracts) {
+    if (e.faction || !e.position || !base) continue;
+    const match = base.extracts
+      .filter((x) => x.faction && x.position && looseKey(x.name) === looseKey(e.name))
+      .map((x) => ({ x, d: Math.hypot(x.position.x - e.position.x, x.position.z - e.position.z) }))
+      .sort((a, b) => a.d - b.d)[0];
+    if (match && match.d < 25) e.faction = match.x.faction;
+  }
+}
+const unknownFaction = mapsOut.flatMap((m) => m.extracts.filter((e) => !e.faction).map((e) => `${m.name}: ${e.name}`));
+if (unknownFaction.length) warn(`Extracts zonder PMC/Scav-indeling: ${unknownFaction.join(", ")}`);
 mapsOut.sort((a, b) => Number(a.variant) - Number(b.variant) || a.name.localeCompare(b.name));
 log(`Maps: ${mapsOut.length} (${mapsOut.filter((m) => m.config?.svg).length} met SVG)`);
 

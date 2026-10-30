@@ -13,7 +13,8 @@ let markerIndex = { bosses: new Map(), quests: new Map() };
 let state = {
   mapId: "customs",
   floor: null,
-  show: { bosses: true, specials: true, quests: true, extracts: true, transits: true, hazards: false, locks: false },
+  show: { bosses: true, specials: true, quests: true, transits: true, hazards: false, locks: false },
+  extractMode: "all", // all | pmc | scav | off
   questScope: "open",
   hiddenBosses: [],
   focusQuest: null,
@@ -23,6 +24,9 @@ let state = {
 function loadPrefs() {
   try {
     const saved = JSON.parse(localStorage.getItem(PREF_KEY) ?? "{}");
+    // older prefs had a single on/off "extracts" toggle
+    if (saved.extractMode == null && saved.show?.extracts === false) saved.extractMode = "off";
+    if (saved.show) delete saved.show.extracts;
     state = { ...state, ...saved, show: { ...state.show, ...(saved.show ?? {}) }, floor: null, focusQuest: null, focusBoss: null };
   } catch {
     /* ignore */
@@ -114,7 +118,17 @@ export function mount(el, route) {
         <div class="block">
           <div class="section-title">Lagen</div>
           <div class="layer-toggles">
-            ${[["bosses", "Bosses"], ["specials", "Raiders / Rogues / Cultists"], ["quests", "Quest-locaties"], ["extracts", "Extracts"], ["transits", "Transits"], ["hazards", "Mijnen / snipers"], ["locks", "Sloten (keys)"]].map(([k, label]) => html`<label class="check"><input type="checkbox" data-show="${k}" ${state.show[k] ? "checked" : ""}>${label}</label>`)}
+            ${[["bosses", "Bosses"], ["specials", "Raiders / Rogues / Cultists"], ["quests", "Quest-locaties"], ["transits", "Transits"], ["hazards", "Mijnen / snipers"], ["locks", "Sloten (keys)"]].map(([k, label]) => html`<label class="check"><input type="checkbox" data-show="${k}" ${state.show[k] ? "checked" : ""}>${label}</label>`)}
+          </div>
+          <div class="section-title" style="margin-top:10px">Extracts</div>
+          <div class="floors" id="m-extract-mode">
+            ${[["all", "Alle"], ["pmc", "Als PMC"], ["scav", "Als Scav"], ["off", "Uit"]].map(([k, label]) => html`<button class="chip ${state.extractMode === k ? "on" : ""}" data-extract-mode="${k}">${label}</button>`)}
+          </div>
+          <div class="extract-legend">
+            <span><i class="mk-extract-pmc"></i>PMC</span>
+            <span><i class="mk-extract-scav"></i>Scav</span>
+            <span><i class="mk-extract-shared"></i>PMC + Scav</span>
+            <span><i class="mk-extract-coop"></i>Co-op (samen)</span>
           </div>
           <div id="m-floors" style="margin-top:10px"></div>
         </div>
@@ -142,6 +156,14 @@ export function mount(el, route) {
     </div>`);
 
   el.querySelector("#m-select").addEventListener("change", (e) => go(`#/map/${encodeURIComponent(e.target.value)}`));
+  el.querySelector("#m-extract-mode").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-extract-mode]");
+    if (!b) return;
+    state.extractMode = b.dataset.extractMode;
+    for (const c of el.querySelectorAll("[data-extract-mode]")) c.classList.toggle("on", c === b);
+    savePrefs();
+    drawExtracts();
+  });
   for (const cb of el.querySelectorAll("[data-show]")) cb.addEventListener("change", () => {
     state.show[cb.dataset.show] = cb.checked;
     savePrefs();
@@ -466,10 +488,41 @@ function questPopup(q, o) {
   </div>`);
 }
 
-function extractClass(f) {
-  if (f === "pmc") return "mk-extract-pmc";
-  if (f === "scav") return "mk-extract-scav";
-  return "mk-extract-shared";
+const EXTRACT_KIND = {
+  pmc: { cls: "mk-extract-pmc", label: "PMC-extract" },
+  scav: { cls: "mk-extract-scav", label: "Scav-extract" },
+  both: { cls: "mk-extract-shared", label: "Extract voor PMC én Scav" },
+  coop: { cls: "mk-extract-coop", label: "Co-op-extract: een PMC en een Scav samen" },
+};
+
+/**
+ * Extracts as the player sees them: the PMC and Scav variant of one exit (same name, same spot)
+ * become a single marker, and each gets a kind: pmc, scav, both, or co-op.
+ */
+function groupedExtracts() {
+  const groups = [];
+  for (const e of mapData.extracts) {
+    if (!e.position) continue;
+    const g = groups.find((x) => norm(x.name) === norm(e.name) && Math.hypot(x.position.x - e.position.x, x.position.z - e.position.z) < 25);
+    if (g) {
+      g.factions.add(e.faction);
+      g.wiki ??= e.wiki;
+    } else {
+      groups.push({ name: e.name, position: e.position, factions: new Set([e.faction]), wiki: e.wiki });
+    }
+  }
+  for (const g of groups) {
+    const coop = /co-?op/i.test(g.name) || /scav \+ pmc/i.test(g.wiki?.requirementsHtml ?? "");
+    g.kind = coop ? "coop" : g.factions.has("shared") || (g.factions.has("pmc") && g.factions.has("scav")) ? "both" : g.factions.has("pmc") ? "pmc" : "scav";
+  }
+  return groups;
+}
+
+function extractVisible(kind) {
+  if (state.extractMode === "off") return false;
+  if (state.extractMode === "pmc") return kind !== "scav";
+  if (state.extractMode === "scav") return kind !== "pmc";
+  return true;
 }
 
 function labelMarker(p, cls, text, popupHtml) {
@@ -480,15 +533,16 @@ function labelMarker(p, cls, text, popupHtml) {
 }
 
 function drawExtracts() {
+  if (!map) return;
   groups.extracts.clearLayers();
-  if (!state.show.extracts || state.focusQuest || state.focusBoss) return;
-  for (const e of mapData.extracts) {
-    if (!e.position) continue;
-    const label = e.faction === "scav" ? "Scav" : e.faction === "pmc" ? "PMC" : "Gedeeld";
-    const popup = String(html`<div class="pop"><h4>${e.name}</h4><div class="small">${label}-extract${e.wiki?.singleUse ? " · eenmalig" : ""}${e.wiki?.alwaysAvailable === false ? " · niet altijd beschikbaar" : ""}</div>
+  if (state.focusQuest || state.focusBoss) return;
+  for (const e of groupedExtracts()) {
+    if (!extractVisible(e.kind)) continue;
+    const kind = EXTRACT_KIND[e.kind];
+    const popup = String(html`<div class="pop"><h4>${e.name}</h4><div class="small">${kind.label}${e.wiki?.singleUse ? " · eenmalig" : ""}${e.wiki?.alwaysAvailable === false ? " · niet altijd beschikbaar" : ""}</div>
       ${e.wiki?.requirementsHtml ? html`<p style="margin:6px 0 2px"><b>Vereist:</b> ${raw(e.wiki.requirementsHtml)}</p>` : ""}
       ${e.wiki?.notesHtml ? html`<div class="small" style="color:var(--text)">${raw(e.wiki.notesHtml)}</div>` : ""}</div>`);
-    groups.extracts.addLayer(labelMarker(e.position, extractClass(e.faction), escapeLabel(e.name), popup));
+    groups.extracts.addLayer(labelMarker(e.position, kind.cls, escapeLabel(e.name), popup));
   }
 }
 
