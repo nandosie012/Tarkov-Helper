@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Lokale Escape from Tarkov helper: quests, quest-items, bosses en een interactieve kaart. Data uit de EFT-wiki en json.tarkov.dev.",
   "scripts": {
-    "sync": "node sync/index.mjs",
+    "sync": "node sync/all.mjs",
     "build": "node scripts/build.mjs",
     "preview:static": "node scripts/serve-static.mjs",
     "start": "node server.mjs",

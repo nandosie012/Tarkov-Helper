@@ -21,7 +21,8 @@ const modeArg = [...args].find((a) => a.startsWith("--mode="));
 const mode = modeArg ? modeArg.split("=")[1] : process.env.GAME_MODE === "pve" ? "pve" : "regular";
 
 if (!args.has("--skip-sync")) {
-  const result = spawnSync(process.execPath, [path.join(root, "sync", "index.mjs"), `--mode=${mode}`], { cwd: root, stdio: "inherit" });
+  // all.mjs syncs the main mode and the PvP season (data/season/)
+  const result = spawnSync(process.execPath, [path.join(root, "sync", "all.mjs")], { cwd: root, stdio: "inherit", env: { ...process.env, GAME_MODE: mode } });
   if (result.status !== 0) {
     console.error("Sync mislukt, build gestopt.");
     process.exit(result.status ?? 1);
@@ -48,6 +49,23 @@ for (const file of required.filter((f) => f !== "meta.json")) {
 }
 for (const file of await readdir(path.join(dataDir, "maps"))) {
   if (file.endsWith(".svg")) await cp(path.join(dataDir, "maps", file), path.join(dist, "data", "maps", file));
+}
+
+// PvP season: optional (between seasons there may be none); the site hides the mode switch without it
+const seasonFiles = [...required, "season.json"];
+let season = true;
+for (const file of seasonFiles) {
+  try {
+    await readFile(path.join(dataDir, "season", file));
+  } catch {
+    season = false;
+  }
+}
+if (season) {
+  await mkdir(path.join(dist, "data", "season"), { recursive: true });
+  for (const file of seasonFiles) await cp(path.join(dataDir, "season", file), path.join(dist, "data", "season", file));
+} else {
+  console.warn("Geen (complete) seizoensdata in data/season: de site toont alleen de reguliere modus.");
 }
 
 // meta.json + where/when this build ran (shown on the Data page)

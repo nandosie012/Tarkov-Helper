@@ -1,4 +1,4 @@
-import { esc, timeAgo, debounce, norm } from "./util.js";
+import { esc, timeAgo, norm } from "./util.js";
 import * as questsView from "./views/quests.js";
 import * as itemsView from "./views/items.js";
 import * as mapView from "./views/map.js";
@@ -28,7 +28,22 @@ export const store = {
   trades: null, // loaded on first visit of the trade page
   status: null,
   progress: { done: {}, objectives: {}, owned: {}, level: null },
+  mode: "regular", // regular | season (the PvP season, data/season/)
+  season: null, // data/season/season.json, null when the build has no season
+  modeMeta: null, // meta.json of the current mode
 };
+
+const MODE_KEY = "tarkov-helper-mode";
+try {
+  store.mode = localStorage.getItem(MODE_KEY) === "season" ? "season" : "regular";
+} catch {
+  /* storage unavailable */
+}
+
+/** Path of a dataset for the current game mode. Map images (data/maps/) are shared and not mode-specific. */
+export function dataPath(file) {
+  return store.mode === "season" ? `data/season/${file}` : `data/${file}`;
+}
 
 /**
  * Set by the static build (scripts/build.mjs): no server behind the site, data comes from data/*.json
@@ -43,12 +58,14 @@ async function getJson(url) {
 }
 
 async function loadData() {
-  const [q, items, bosses, maps] = await Promise.all([
-    getJson("data/quests.json"),
-    getJson("data/items.json"),
-    getJson("data/bosses.json"),
-    getJson("data/maps.json"),
+  const [q, items, bosses, maps, meta] = await Promise.all([
+    getJson(dataPath("quests.json")),
+    getJson(dataPath("items.json")),
+    getJson(dataPath("bosses.json")),
+    getJson(dataPath("maps.json")),
+    getJson(dataPath("meta.json")).catch(() => null),
   ]);
+  store.modeMeta = meta;
   store.quests = q.quests;
   store.traders = q.traders;
   store.items = items;
@@ -73,23 +90,25 @@ export async function refreshStatus() {
 }
 
 // ---------------------------------------------------------------------------
-// Progress (server: data/progress.json, mirrored in localStorage; static site: localStorage only)
+// Progress, kept per game mode (a season wipe must not touch regular progress).
+// Server: data/progress.json / progress-season.json, mirrored in localStorage; static site: localStorage only.
 // ---------------------------------------------------------------------------
 
-const LS_KEY = "tarkov-helper-progress";
+const progressKey = (mode) => (mode === "season" ? "tarkov-helper-progress-season" : "tarkov-helper-progress");
+const progressApi = (mode) => (mode === "season" ? "api/progress?mode=season" : "api/progress");
 
 async function loadProgress() {
   let server = null;
   if (!STATIC) {
     try {
-      server = await getJson("api/progress");
+      server = await getJson(progressApi(store.mode));
     } catch {
       /* offline */
     }
   }
   let local = null;
   try {
-    local = JSON.parse(localStorage.getItem(LS_KEY) ?? "null");
+    local = JSON.parse(localStorage.getItem(progressKey(store.mode)) ?? "null");
   } catch {
     /* storage unavailable */
   }
@@ -97,22 +116,32 @@ async function loadProgress() {
   store.progress = { done: {}, objectives: {}, owned: {}, level: null, ...chosen };
 }
 
-const pushProgress = debounce(async () => {
+// the pending save remembers its own mode, so switching modes mid-debounce cannot write into the wrong one
+let pending = null;
+let saveTimer = null;
+
+async function flushProgress() {
+  clearTimeout(saveTimer);
+  if (!pending) return;
+  const { mode, progress } = pending;
+  pending = null;
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify(store.progress));
+    localStorage.setItem(progressKey(mode), JSON.stringify(progress));
   } catch {
     /* ignore */
   }
   if (STATIC) return;
   try {
-    await fetch("api/progress", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(store.progress) });
+    await fetch(progressApi(mode), { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(progress) });
   } catch {
     /* server offline: localStorage still has it */
   }
-}, 400);
+}
 
 export function saveProgress() {
-  pushProgress();
+  pending = { mode: store.mode, progress: store.progress };
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushProgress, 400);
 }
 
 export function isDone(questId) {
@@ -238,6 +267,57 @@ levelInput.addEventListener("change", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Game mode switch (Regular / Season)
+// ---------------------------------------------------------------------------
+
+export function seasonDaysLeft() {
+  if (!store.season) return null;
+  return Math.max(0, Math.ceil((Date.parse(store.season.end) - Date.now()) / 864e5));
+}
+
+function renderModeUi() {
+  const sw = document.getElementById("mode-switch");
+  const pill = document.getElementById("season-pill");
+  sw.hidden = !store.season;
+  for (const b of sw.querySelectorAll("[data-gm]")) b.classList.toggle("on", b.dataset.gm === store.mode);
+  document.body.dataset.mode = store.mode;
+  if (store.mode === "season" && store.season) {
+    const days = seasonDaysLeft();
+    pill.hidden = false;
+    pill.textContent = days > 0 ? `${store.season.name} · nog ${days} ${days === 1 ? "dag" : "dagen"}` : `${store.season.name} · afgelopen`;
+    pill.title = `Seizoen ${new Date(store.season.start).toLocaleDateString("nl-NL")} – ${new Date(store.season.end).toLocaleDateString("nl-NL")}`;
+  } else {
+    pill.hidden = true;
+  }
+}
+
+async function switchMode(mode) {
+  if (mode === store.mode || (mode === "season" && !store.season)) return;
+  await flushProgress();
+  store.mode = mode;
+  try {
+    localStorage.setItem(MODE_KEY, mode);
+  } catch {
+    /* ignore */
+  }
+  renderModeUi();
+  document.getElementById("app").innerHTML = `<div class="loading">${mode === "season" ? "Seizoensdata" : "Reguliere data"} laden…</div>`;
+  current?.view.unmount?.();
+  current = null;
+  store.ammo = null;
+  store.builds = null;
+  store.trades = null;
+  await Promise.all([loadData(), loadProgress()]);
+  levelInput.value = store.progress.level ?? "";
+  route();
+}
+
+document.getElementById("mode-switch").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-gm]");
+  if (b) switchMode(b.dataset.gm);
+});
+
+// ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
 
@@ -256,6 +336,10 @@ async function waitForData() {
 async function boot() {
   try {
     await waitForData();
+    // season data is optional: without it (between seasons, or an older build) the switch stays hidden
+    store.season = await getJson("data/season/season.json").catch(() => null);
+    if (!store.season) store.mode = "regular";
+    renderModeUi();
     await Promise.all([loadData(), loadProgress()]);
   } catch (err) {
     const hint = STATIC ? "De build bevat geen data. Draai de build opnieuw (npm run build)." : `Draait de server? Start met <span class="mono">npm start</span>.`;

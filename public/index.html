@@ -22,6 +22,11 @@
       <a href="#/status" data-tab="status">Data</a>
     </nav>
     <div class="topbar-right">
+      <div class="mode-switch" id="mode-switch" hidden title="Spelmodus: reguliere PvP of het huidige PvP-seizoen (eigen quests, prijzen en spawns)">
+        <button type="button" data-gm="regular">Regulier</button>
+        <button type="button" data-gm="season">Seizoen</button>
+      </div>
+      <a class="season-pill" id="season-pill" href="#/status" hidden></a>
       <label class="level-input" title="Je PMC-level, gebruikt om te bepalen welke quests beschikbaar zijn">
         Level <input id="player-level" type="number" min="1" max="79" placeholder="–">
       </label>

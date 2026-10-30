@@ -1,4 +1,4 @@
-import { store, go } from "../app.js";
+import { store, go, dataPath } from "../app.js";
 import { html, norm, rub, debounce } from "../util.js";
 
 const PREF_KEY = "tarkov-helper-builds";
@@ -35,8 +35,8 @@ export async function mount(el, route) {
   loadPrefs();
   el.innerHTML = `<div class="loading">Builds laden…</div>`;
   try {
-    store.builds ??= await getJson("data/builds.json");
-    store.ammo ??= await getJson("data/ammo.json").catch(() => null);
+    store.builds ??= await getJson(dataPath("builds.json"));
+    store.ammo ??= await getJson(dataPath("ammo.json")).catch(() => null);
   } catch {
     el.innerHTML = `<div class="empty">Nog geen build-data. Draai een sync via de pagina Data.</div>`;
     return;

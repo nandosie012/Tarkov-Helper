@@ -55,7 +55,8 @@ const sync = { running: false, startedAt: null, finishedAt: null, exitCode: null
 function startSync(reason) {
   if (sync.running) return false;
   Object.assign(sync, { running: true, startedAt: new Date().toISOString(), finishedAt: null, exitCode: null, log: [`Sync gestart (${reason})`] });
-  const child = spawn(process.execPath, [path.join(root, "sync", "index.mjs"), `--mode=${GAME_MODE}`], { cwd: root });
+  // all.mjs syncs the main mode (GAME_MODE from the environment) and the PvP season
+  const child = spawn(process.execPath, [path.join(root, "sync", "all.mjs")], { cwd: root });
   const push = (chunk) => {
     for (const line of String(chunk).split(/\r?\n/)) {
       if (!line.trim()) continue;
@@ -111,7 +112,7 @@ async function readBody(req, limit = 4 * 1024 * 1024) {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-async function handleApi(req, res, pathname) {
+async function handleApi(req, res, pathname, query) {
   if (pathname === "/api/status" && req.method === "GET") {
     return sendJson(res, 200, { meta: await readMeta(), sync: { ...sync, log: sync.log.slice(-60) }, mode: GAME_MODE, syncIntervalHours: SYNC_INTERVAL_HOURS });
   }
@@ -120,7 +121,8 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, started ? 202 : 409, { started, running: sync.running });
   }
   if (pathname === "/api/progress") {
-    const file = path.join(dataDir, "progress.json");
+    // progress is kept per game mode: a season wipe should not touch regular progress
+    const file = path.join(dataDir, query.get("mode") === "season" ? "progress-season.json" : "progress.json");
     if (req.method === "GET") {
       try {
         return send(res, 200, await readFile(file, "utf8"), { "Content-Type": TYPES[".json"] });
@@ -152,7 +154,8 @@ async function serveStatic(req, res, pathname) {
   if (!rel || rel.endsWith("/")) rel += "index.html";
   const file = path.resolve(mount.dir, rel);
   if (!file.startsWith(mount.dir + path.sep)) return send(res, 403, "forbidden");
-  if (mount.dir === dataDir && path.basename(file) === "progress.json") return send(res, 404, "not found");
+  // progress files and sync caches are private to the server
+  if (mount.dir === dataDir && /^(progress.*\.json|\..*)$/.test(path.basename(file))) return send(res, 404, "not found");
   let info;
   try {
     info = await stat(file);
@@ -183,8 +186,8 @@ async function serveStatic(req, res, pathname) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const { pathname } = new URL(req.url, "http://local");
-    if (pathname.startsWith("/api/")) return await handleApi(req, res, pathname);
+    const { pathname, searchParams } = new URL(req.url, "http://local");
+    if (pathname.startsWith("/api/")) return await handleApi(req, res, pathname, searchParams);
     if (req.method !== "GET" && req.method !== "HEAD") return send(res, 405, "method not allowed");
     return await serveStatic(req, res, pathname);
   } catch (err) {

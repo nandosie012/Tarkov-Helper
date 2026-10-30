@@ -1,4 +1,4 @@
-import { store, refreshStatus, reloadData, saveProgress, STATIC } from "../app.js";
+import { store, refreshStatus, reloadData, saveProgress, STATIC, seasonDaysLeft } from "../app.js";
 import { html, timeAgo } from "../util.js";
 
 let root;
@@ -79,16 +79,20 @@ function render() {
   if (!body) return;
   const s = store.status;
   const meta = s?.meta;
-  const c = meta?.counts ?? {};
+  // contents and warnings describe the mode you are looking at (regular or season)
+  const content = store.modeMeta ?? meta;
+  const c = content?.counts ?? {};
   const running = !!s?.sync?.running;
+  const seasonMode = store.mode === "season";
   body.innerHTML = String(html`
     <div class="detail-inner" style="padding:0">
       <h2 style="font-size:17px;margin-bottom:12px">Data &amp; synchronisatie</h2>
+      ${seasonMode ? seasonCard() : ""}
       <div class="card">
         <h3>Status</h3>
         <dl class="kv">
           <dt>Laatst opgehaald</dt><dd>${meta ? html`${new Date(meta.fetchedAt).toLocaleString("nl-NL")} <span class="muted">(${timeAgo(meta.fetchedAt)}, ${meta.durationSec}s)</span>` : "nog nooit"}</dd>
-          <dt>Spelmodus</dt><dd>${(s?.mode ?? meta?.mode) === "pve" ? "PvE" : "PvP (regular)"} <span class="muted">· wijzig met GAME_MODE=pve</span></dd>
+          <dt>Modi</dt><dd>${(s?.mode ?? meta?.mode) === "pve" ? "PvE" : "Regulier (PvP)"}${store.season ? ` + seizoen ${store.season.name}` : ""} <span class="muted">· hoofdmodus wijzigen met GAME_MODE=pve</span></dd>
           ${STATIC
             ? html`<dt>Automatisch</dt><dd>via de geplande build van deze site${meta?.build?.source ? html` <span class="muted">(${meta.build.source})</span>` : ""}</dd>`
             : html`<dt>Automatisch</dt><dd>${s?.syncIntervalHours ? `elke ${s.syncIntervalHours} uur (zolang de server draait)` : "uit"}</dd>`}
@@ -97,8 +101,8 @@ function render() {
         ${STATIC ? "" : html`<div class="q-actions"><button class="btn primary" id="s-sync" ${running ? "disabled" : ""}>${running ? "Bezig…" : "Nu synchroniseren"}</button></div>`}
       </div>
 
-      ${meta ? html`<div class="card">
-        <h3>Inhoud</h3>
+      ${content ? html`<div class="card">
+        <h3>Inhoud <span class="count">${seasonMode ? `seizoen${content.season?.questsNotInSeason ? ` · ${content.season.questsNotInSeason} reguliere quests zitten niet in het seizoen` : ""}` : "regulier"}</span></h3>
         <div class="stat-row">
           <div class="stat"><b>${c.quests}</b><span>Quests</span></div>
           <div class="stat"><b>${c.questsWikiAndApi}</b><span>Wiki + game-data</span></div>
@@ -111,11 +115,12 @@ function render() {
           ${c.ammo ? html`<div class="stat"><b>${c.ammo}</b><span>Soorten ammo</span></div>` : ""}
         </div>
       </div>
-      ${meta.questsWikiOnly?.length ? html`<div class="card"><h3>Alleen op de wiki <span class="count">${meta.questsWikiOnly.length}</span></h3>
+      ${content.questsWikiOnly?.length ? html`<div class="card"><h3>Alleen op de wiki <span class="count">${content.questsWikiOnly.length}</span></h3>
         <p class="muted" style="margin-top:0">Staan op de wiki maar (nog) niet in de game-data: nieuwe of event-quests, Arena/Ref-quests, prestige. Ze zijn wel volledig opgenomen, alleen zonder kaartcoördinaten.</p>
-        <div class="taglist">${meta.questsWikiOnly.map((t) => html`<span class="chip">${t}</span>`)}</div></div>` : ""}
-      ${meta.questsApiOnly?.length ? html`<div class="card"><h3>Alleen in game-data <span class="count">${meta.questsApiOnly.length}</span></h3><div class="taglist">${meta.questsApiOnly.map((t) => html`<span class="chip">${t}</span>`)}</div></div>` : ""}
-      ${meta.warnings?.length ? html`<div class="card"><h3>Waarschuwingen</h3><ul class="richtext">${meta.warnings.map((w) => html`<li>${w}</li>`)}</ul></div>` : ""}` : ""}
+        <div class="taglist">${content.questsWikiOnly.map((t) => html`<span class="chip">${t}</span>`)}</div></div>` : ""}
+      ${content.questsApiOnly?.length ? html`<div class="card"><h3>Alleen in game-data <span class="count">${content.questsApiOnly.length}</span></h3><div class="taglist">${content.questsApiOnly.map((t) => html`<span class="chip">${t}</span>`)}</div></div>` : ""}
+      ${content.warnings?.length ? html`<div class="card"><h3>Waarschuwingen</h3><ul class="richtext">${content.warnings.map((w) => html`<li>${w}</li>`)}</ul></div>` : ""}` : ""}
+      ${!seasonMode && store.season ? seasonCard() : ""}
 
       ${STATIC ? "" : html`<div class="card">
         <h3>Sync-log</h3>
@@ -124,9 +129,9 @@ function render() {
 
       <div class="card">
         <h3>Voortgang</h3>
-        <p class="muted" style="margin-top:0">${Object.keys(store.progress.done).length} quests voltooid. ${STATIC
+        <p class="muted" style="margin-top:0">${Object.keys(store.progress.done).length} quests voltooid ${seasonMode ? "in het seizoen" : "in regulier"}; elke modus heeft zijn eigen voortgang. ${STATIC
           ? "Opgeslagen in deze browser, per apparaat. Exporteer om een back-up te maken of om je voortgang naar een ander apparaat te zetten."
-          : html`Opgeslagen in <span class="mono">data/progress.json</span> (en in je browser als back-up).`}</p>
+          : html`Opgeslagen in <span class="mono">data/${seasonMode ? "progress-season.json" : "progress.json"}</span> (en in je browser als back-up).`}</p>
         <div class="q-actions">
           <button class="btn" id="s-export">Exporteren</button>
           <label class="btn">Importeren<input type="file" id="s-import" accept="application/json" hidden></label>
@@ -141,4 +146,43 @@ function render() {
         Kaarten: <a href="https://github.com/the-hideout/tarkov-dev-svg-maps" target="_blank" rel="noopener">tarkov-dev-svg-maps</a> (CC BY-NC-SA 4.0).
       </p>
     </div>`);
+}
+
+/** The current PvP season: dates, the modifiers everybody has, and the personal ones you buy with points. */
+function seasonCard() {
+  const season = store.season;
+  if (!season) return "";
+  const days = seasonDaysLeft();
+  const nameOf = new Map(season.personal.map((p) => [p.id, p.name]));
+  const date = (iso) => new Date(iso).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
+  const points = (p) => {
+    if (p.points == null) return "";
+    if (p.points > 0) return html`<span class="c-green">+${p.points}</span><div class="faint" style="font-size:11px">geeft punten</div>`;
+    if (p.points < 0) return html`<span class="c-orange">−${Math.abs(p.points)}</span><div class="faint" style="font-size:11px">kost punten</div>`;
+    return "0";
+  };
+  const perkName = (p) => html`<div class="iname">${p.image ? html`<img class="icon-img sm" src="${p.image}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}<b>${p.name}</b></div>`;
+  return html`<div class="card highlight">
+    <h3>Seizoen: ${season.name} <span class="count">${days > 0 ? `nog ${days} ${days === 1 ? "dag" : "dagen"}` : "afgelopen"}</span></h3>
+    <p style="margin:0 0 12px">${date(season.start)} – ${date(season.end)}. ${store.mode === "season"
+      ? "Je bekijkt de seizoensdata: quests, prijzen, builds en spawns van het PvP-seizoen."
+      : "Schakel bovenaan naar Seizoen voor de quests, prijzen, builds en spawns van het PvP-seizoen."}</p>
+    <div class="section-title">Voor iedereen</div>
+    <div class="table-scroll"><table class="itable" style="margin-bottom:14px">
+      <tbody>${season.common.map((p) => html`<tr><td style="width:240px">${perkName(p)}</td><td class="muted">${p.description}</td></tr>`)}</tbody>
+    </table></div>
+    <details>
+      <summary>Persoonlijke modifiers (${season.personal.length}): kies je zelf met punten</summary>
+      <p class="muted" style="font-size:12.5px">Nadelen geven punten, voordelen kosten punten. Sommige modifiers sluiten elkaar uit.</p>
+      <div class="table-scroll"><table class="itable">
+        <thead><tr><th>Modifier</th><th>Effect</th><th>Punten</th><th>Sluit uit</th></tr></thead>
+        <tbody>${[...season.personal].sort((a, b) => (a.points ?? 0) - (b.points ?? 0)).map((p) => html`<tr>
+          <td style="width:220px">${perkName(p)}</td>
+          <td class="muted">${p.description}</td>
+          <td class="num" style="white-space:nowrap">${points(p)}</td>
+          <td class="muted" style="font-size:12px">${p.exclusive.map((id) => nameOf.get(id)).filter(Boolean).join(", ") || "–"}</td>
+        </tr>`)}</tbody>
+      </table></div>
+    </details>
+  </div>`;
 }

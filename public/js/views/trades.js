@@ -1,4 +1,4 @@
-import { store } from "../app.js";
+import { store, dataPath } from "../app.js";
 import { html, norm, rub, debounce, timeAgo } from "../util.js";
 
 const PREF_KEY = "tarkov-helper-trades";
@@ -87,7 +87,7 @@ export async function mount(el) {
   el.innerHTML = `<div class="loading">Prijzen laden…</div>`;
   try {
     if (!store.trades) {
-      const res = await fetch("data/trades.json", { cache: "no-cache" });
+      const res = await fetch(dataPath("trades.json"), { cache: "no-cache" });
       if (!res.ok) throw new Error(res.status);
       store.trades = await res.json();
     }

@@ -1,4 +1,4 @@
-import { store, go } from "../app.js";
+import { store, go, dataPath } from "../app.js";
 import { html, norm, rub, debounce } from "../util.js";
 
 const PREF_KEY = "tarkov-helper-ammo";
@@ -52,7 +52,7 @@ export async function mount(el, route) {
   loadPrefs();
   el.innerHTML = `<div class="page"><div class="loading">Ammo laden…</div></div>`;
   if (!store.ammo) {
-    const res = await fetch("data/ammo.json", { cache: "no-cache" });
+    const res = await fetch(dataPath("ammo.json"), { cache: "no-cache" });
     if (!res.ok) {
       el.innerHTML = `<div class="empty">Nog geen ammo-data. Draai een sync via de pagina Data.</div>`;
       return;

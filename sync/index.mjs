@@ -1,7 +1,9 @@
 /**
  * Sync: pull the live EFT wiki + json.tarkov.dev and write the helper's datasets to ./data.
  *
- *   node sync/index.mjs [--mode=regular|pve] [--force-maps]
+ *   node sync/index.mjs [--mode=regular|pve|season] [--out=data] [--wiki-cache=file] [--force-maps]
+ *
+ * sync/all.mjs runs this for every mode the site offers (regular into data/, the PvP season into data/season/).
  *
  * Wiki (escapefromtarkov.fandom.com) is leading for: which quests exist, objectives text,
  * "Related Quest Items" tables, requirements, rewards, guides/images, boss + map descriptions.
@@ -13,8 +15,10 @@ import { mkdir, writeFile, rename, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getText } from "./http.mjs";
-import { getWikitext, getPages, getImageUrls, wikiUrl, looseKey, normTitle } from "./wiki.mjs";
+import { readFile } from "node:fs/promises";
+import { getText, getJson } from "./http.mjs";
+import { wikiUrl, looseKey, normTitle } from "./wiki.mjs";
+import { openWikiCache } from "./wiki-cache.mjs";
 import { unknownTemplates } from "./wikitext.mjs";
 import { fetchTarkovDev, wikiTitleFromUrl } from "./tarkovdev.mjs";
 import { parseQuestList, parseQuestPage, parseBossList, parseBossPage, parseMapPage } from "./parse-wiki.mjs";
@@ -22,8 +26,6 @@ import { computeBuilds } from "./builds.mjs";
 import { computeTrades } from "./trades.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const dataDir = path.join(root, "data");
-const mapsDir = path.join(dataDir, "maps");
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((a) => {
@@ -31,7 +33,10 @@ const args = Object.fromEntries(
     return [k, v ?? true];
   })
 );
-const MODE = args.mode === "pve" ? "pve" : "regular";
+// json.tarkov.dev game modes: regular (PvP), pve, pvp-season (the current PvP season)
+const MODE = args.mode === "pve" ? "pve" : args.mode === "season" || args.mode === "pvp-season" ? "pvp-season" : "regular";
+const dataDir = path.join(root, typeof args.out === "string" ? args.out : "data");
+const mapsDir = path.join(root, "data", "maps"); // map images are the same for every mode
 const started = Date.now();
 const warnings = [];
 
@@ -59,11 +64,12 @@ async function writeJson(name, value) {
 // 1. Fetch sources
 // ---------------------------------------------------------------------------
 
-log(`json.tarkov.dev (${MODE}) + wiki ophalen...`);
+const wiki = await openWikiCache(typeof args["wiki-cache"] === "string" ? path.resolve(root, args["wiki-cache"]) : null);
+log(`json.tarkov.dev (${MODE}) + wiki ophalen${wiki.reused ? " (wiki uit cache van de vorige run)" : ""}...`);
 const [api, questListPage, bossListPage] = await Promise.all([
   fetchTarkovDev(MODE),
-  getWikitext("Quests"),
-  getWikitext("Bosses"),
+  wiki.wikitext("Quests"),
+  wiki.wikitext("Bosses"),
 ]);
 const tr = api.tr;
 log(`API: ${Object.keys(api.tasks.tasks).length} tasks, ${Object.keys(api.items.items).length} items, ${Object.keys(api.maps.maps).length} maps`);
@@ -107,7 +113,7 @@ const apiMaps = Object.values(api.maps.maps);
 const mapPageTitles = [...new Set(apiMaps.map((m) => wikiTitleFromUrl(m.wiki)).filter(Boolean))];
 
 log(`Wiki pagina's ophalen: ${wikiQuestList.length + extraTitles.length} quests, ${bossList.length} bosses, ${mapPageTitles.length} maps...`);
-const pages = await getPages(
+const pages = await wiki.pages(
   [...wikiQuestList.map((q) => q.title), ...extraTitles, ...bossList.map((b) => b.title), ...mapPageTitles],
   { onProgress: (done, total) => (done % 200 === 0 || done === total) && log(`  wiki ${done}/${total}`) }
 );
@@ -451,7 +457,29 @@ function escapeText(s) {
   return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-for (const entry of wikiQuestList) buildQuest({ ...entry, inList: true });
+// Season: quests that the regular game data knows but the season does not, are not part of the season.
+// (Without this they would show up as "wiki only".) Regular quests come from the run before this one.
+let notInSeason = new Set();
+if (MODE === "pvp-season") {
+  try {
+    const regular = JSON.parse(await readFile(path.join(root, "data", "quests.json"), "utf8"));
+    notInSeason = new Set(regular.quests.filter((q) => q.tdevId).map((q) => looseKey(q.title)));
+  } catch {
+    warn("Seizoen: geen reguliere questdata gevonden om mee te vergelijken");
+  }
+}
+const hasTask = (title) =>
+  [title, baseTitle(title)].some((t) => taskByWiki.has(looseKey(t)) || taskByName.has(looseKey(t)));
+let skippedForSeason = 0;
+for (const entry of wikiQuestList) {
+  const pageTitle = pages.get(normTitle(entry.title))?.title ?? entry.title;
+  if (notInSeason.has(looseKey(pageTitle)) && !hasTask(pageTitle) && !hasTask(entry.title)) {
+    skippedForSeason++;
+    continue;
+  }
+  buildQuest({ ...entry, inList: true });
+}
+if (skippedForSeason) log(`Seizoen: ${skippedForSeason} reguliere quests zitten niet in het seizoen`);
 for (const t of apiTasks) {
   if (usedTasks.has(t.id)) continue;
   const wt = wikiTitleFromUrl(t.wikiLink);
@@ -850,7 +878,8 @@ for (const b of bossesOut) {
 }
 for (const it of items.values()) if (!it.icon && it.iconFile) wantedFiles.add(it.iconFile);
 log(`Wiki-afbeeldingen opzoeken: ${wantedFiles.size}...`);
-const imageUrls = await getImageUrls([...wantedFiles], 900);
+const imageUrls = await wiki.images([...wantedFiles], 900);
+await wiki.save();
 const img = (f) => {
   const hit = imageUrls.get(f);
   return hit ? { file: f.file ?? f, url: hit.url, thumb: hit.thumb } : null;
@@ -921,6 +950,28 @@ await writeJson("trades.json", {
   fee: { offer: api.items.fleaMarket?.sellOfferFeeRate ?? 0.05, requirement: api.items.fleaMarket?.sellRequirementFeeRate ?? 0.05 },
   items: trades,
 });
+if (MODE === "pvp-season") {
+  // season info: name, dates and the modifiers (common ones for everybody, personal ones bought with points)
+  const [season, seasonT] = await Promise.all([getJson("https://json.tarkov.dev/pvp-season/season"), getJson("https://json.tarkov.dev/pvp-season/season_en")]);
+  const t = (key, fallback = "") => seasonT.data?.[key] || fallback;
+  const perk = (p) => ({
+    id: p.id,
+    name: t(p.name, p.name),
+    description: t(p.description, ""),
+    points: p.points ?? null,
+    image: p.imageLink ?? null,
+    exclusive: p.exclusiveToPerks ?? [],
+  });
+  const s = season.data;
+  await writeJson("season.json", {
+    name: t(s.name, "Seizoen"),
+    start: new Date(s.start).toISOString(),
+    end: new Date(s.end).toISOString(),
+    common: (s.perks?.common ?? []).map(perk),
+    personal: (s.perks?.personal ?? []).map(perk),
+  });
+  meta.season = { name: t(s.name, "Seizoen"), questsNotInSeason: skippedForSeason };
+}
 await writeJson("meta.json", meta);
 log("Klaar.", JSON.stringify(meta.counts));
 if (warnings.length) log(`${warnings.length} waarschuwingen (zie data/meta.json)`);

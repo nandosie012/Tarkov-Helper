@@ -96,6 +96,13 @@ Bij het kopen op de flea:
 - Zoek je een item op, dan zie je het ook zonder winst, handig om te kijken waar je iets het best verkoopt.
 - Let op: prijzen veranderen snel. tarkov.dev scant de flea ongeveer elke 2 uur rond en de online site ververst elk uur, dus een prijs is daar tot ongeveer 3 uur oud. Check de prijs in de game voordat je koopt. Sommige items (keycards, sleutels) kun je pas op een hoger flea-level kopen; dat staat erbij.
 
+**Regulier en Seizoen.** Met de schakelaar bovenaan kies je tussen reguliere PvP en het huidige PvP-seizoen (nu *Kord Breach*, 17 april – 7 december 2026).
+
+- **Wat meeschakelt:** quests (het seizoen mist een deel van de reguliere quests), flea-prijzen en dus de Handel-tab, builds en quest-itemprijzen, en boss- en vijandspawns (bijvoorbeeld Black Division op Woods, Shoreline en Streets).
+- **Seizoenskaart:** op de pagina Data staat een kaart met de datums, de resterende dagen, de modifiers voor iedereen, en de persoonlijke modifiers met hun punten en uitsluitingen.
+- **Voortgang** wordt per modus apart bewaard.
+- **Tussen seizoenen:** als er geen seizoensdata is, verdwijnt de schakelaar vanzelf.
+
 ## Voortgang
 
 Wordt opgeslagen in `data/progress.json` (en als back-up in de browser). Op de pagina **Data** kun je exporteren, importeren en wissen.
@@ -161,12 +168,14 @@ Het gratis Hobby-plan van Vercel is alleen voor niet-commercieel gebruik.
 | Pad | Inhoud |
 |---|---|
 | `server.mjs` | Lokale server zonder dependencies: frontend, data, sync-endpoint, voortgang |
-| `sync/index.mjs` | Haalt alles op en voegt het samen tot `data/*.json` |
+| `sync/all.mjs` | Draait de sync voor de hoofdmodus (`data/`) en het PvP-seizoen (`data/season/`), met de wiki maar één keer opgehaald |
+| `sync/index.mjs` | Haalt alles op voor één modus en voegt het samen tot `data/*.json` |
+| `sync/wiki-cache.mjs` | Deelt wiki-pagina's tussen de runs van beide modi |
 | `sync/wiki.mjs`, `sync/wikitext.mjs`, `sync/parse-wiki.mjs` | MediaWiki-client en wikitext-parsers (infobox, tabellen, lijsten, galerijen, veilige HTML) |
 | `sync/tarkovdev.mjs` | json.tarkov.dev en de kaartconfiguratie |
 | `sync/builds.mjs` | Build-optimizer (meta en budget) over de slot-bomen van de wapens |
 | `public/` | Frontend (vanilla JS-modules, Leaflet), alle paden relatief |
-| `data/` | Gegenereerd: `quests.json`, `items.json`, `bosses.json`, `maps.json`, `ammo.json`, `builds.json`, `meta.json`, `maps/*.svg`, `progress.json` |
+| `data/` | Gegenereerd: `quests.json`, `items.json`, `bosses.json`, `maps.json`, `ammo.json`, `builds.json`, `trades.json`, `meta.json`, `maps/*.svg`, `progress.json`; het seizoen in `data/season/` (plus `season.json`, `progress-season.json`) |
 | `scripts/build.mjs` | Statische build naar `dist/` (sync + frontend + data + Leaflet) |
 | `scripts/serve-static.mjs` | Preview van `dist/` zoals een statische host, optioneel onder een subpad |
 | `.github/workflows/`, `vercel.json`, `netlify.toml`, `.node-version` | Hosting en geplande rebuilds |
