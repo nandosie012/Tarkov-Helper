@@ -916,7 +916,11 @@ await writeJson("bosses.json", bossesOut);
 await writeJson("maps.json", mapsOut);
 await writeJson("ammo.json", { calibers, ammo });
 await writeJson("builds.json", builds);
-await writeJson("trades.json", { fleaMinLevel: api.items.fleaMarket?.minPlayerLevel ?? 15, items: trades });
+await writeJson("trades.json", {
+  fleaMinLevel: api.items.fleaMarket?.minPlayerLevel ?? 15,
+  fee: { offer: api.items.fleaMarket?.sellOfferFeeRate ?? 0.05, requirement: api.items.fleaMarket?.sellRequirementFeeRate ?? 0.05 },
+  items: trades,
+});
 await writeJson("meta.json", meta);
 log("Klaar.", JSON.stringify(meta.counts));
 if (warnings.length) log(`${warnings.length} waarschuwingen (zie data/meta.json)`);

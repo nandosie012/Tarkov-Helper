@@ -20,6 +20,7 @@ export function computeTrades({ items, tr, traderById }) {
       wiki: it.wikiLink ?? null,
       w: it.width ?? 1,
       h: it.height ?? 1,
+      basePrice: it.basePrice ?? null, // input for the flea listing fee
       low: it.lastLowPrice,
       avg: it.avg24hPrice ?? null,
       offers: it.lastOfferCount ?? null,

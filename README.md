@@ -85,7 +85,12 @@ Vul rechtsboven je level in. Vink voltooide quests af. "Voltooid + voorgaande" v
 - Per onderdeel zie je recoil, ergonomie en waar je het het goedkoopst koopt (handelaar + LL of flea). Verder: presets die kant-en-klaar bij handelaren te koop zijn, en een ammo-suggestie per kaliber.
 - Optiek, tactische apparaten en magazijnen laat hij weg; die zijn persoonlijke voorkeur. Onderdelen die niet los te koop zijn (bijvoorbeeld pistoolslides) staan als "standaard" gemarkeerd.
 
-**Handel.** Items die een handelaar duurder terugkoopt dan ze op de flea kosten: koop op de flea (laagste aanbieding), verkoop aan de handelaar.
+**Handel.** Twee weergaven:
+
+- **Flea kopen → handelaar:** items die een handelaar duurder terugkoopt dan ze op de flea kosten.
+- **Verkopen: handelaar of flea?:** voor je eigen loot. Je ziet welke items je altijd aan de handelaar moet verkopen, omdat die meer betaalt dan je op de flea overhoudt na de fee. Die fee wordt geschat met de fee-formule van de game (tarieven en basisprijs uit de game-data), met een vinkje voor Intelligence Center 3 (−30% fee).
+
+Bij het kopen op de flea:
 - Per item: flea-prijs (laagste en 24 uur gemiddeld), het aantal aanbiedingen, de leeftijd van de prijs, de beste handelaar, winst per stuk en per slot, en de marge.
 - Filters op minimale winst, minimaal aanbod en handelaar.
 - Zoek je een item op, dan zie je het ook zonder winst, handig om te kijken waar je iets het best verkoopt.
