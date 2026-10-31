@@ -5,7 +5,8 @@ const TRADER_ORDER = ["Prapor", "Therapist", "Fence", "Skier", "Peacekeeper", "M
 const FILTER_KEY = "tarkov-helper-quest-filters";
 
 let root;
-let state = { id: null, search: "", trader: "", map: "", hideDone: false, onlyAvailable: false, kappa: false, lk: false, hasItems: false, wikiOnly: false };
+// event: "" (all quests), "only", "none" or "ev:<event name>"
+let state = { id: null, search: "", trader: "", map: "", event: "", hideDone: false, onlyAvailable: false, kappa: false, lk: false, hasItems: false, wikiOnly: false };
 
 function loadFilters() {
   try {
@@ -35,6 +36,11 @@ export function mount(el, route) {
     [...new Set(store.quests.map((q) => q.trader))].filter((t) => !TRADER_ORDER.includes(t))
   );
   const maps = store.maps.filter((m) => !m.variant);
+  // current events, newest first (Halloween, Christmas, ...)
+  const events = [...new Set(store.quests.filter((q) => q.eventName).sort((a, b) => (b.eventStart ?? "").localeCompare(a.eventStart ?? "")).map((q) => q.eventName))];
+  const hasEvents = store.quests.some((q) => q.event);
+  state.event = String(state.event ?? "");
+  if (!hasEvents || (state.event.startsWith("ev:") && !events.includes(state.event.slice(3)))) state.event = "";
   el.innerHTML = String(html`
     <div class="split">
       <aside class="sidebar">
@@ -48,6 +54,12 @@ export function mount(el, route) {
             <option value="">Alle maps</option>
             ${maps.map((m) => html`<option value="${m.id}" ${state.map === m.id ? "selected" : ""}>${m.name}</option>`)}
           </select>
+          ${hasEvents ? html`<select class="input" id="q-event">
+            <option value="">Alle quests (incl. events)</option>
+            ${events.map((e) => html`<option value="ev:${e}" ${state.event === `ev:${e}` ? "selected" : ""}>Event: ${e}</option>`)}
+            <option value="only" ${state.event === "only" ? "selected" : ""}>Alle event-quests</option>
+            <option value="none" ${state.event === "none" ? "selected" : ""}>Zonder event-quests</option>
+          </select>` : ""}
           <div class="filter-row">
             <label class="check"><input type="checkbox" data-flag="hideDone" ${state.hideDone ? "checked" : ""}>Verberg voltooid</label>
             <label class="check"><input type="checkbox" data-flag="onlyAvailable" ${state.onlyAvailable ? "checked" : ""}>Alleen beschikbaar</label>
@@ -79,6 +91,11 @@ export function mount(el, route) {
   });
   el.querySelector("#q-map").addEventListener("change", (e) => {
     state.map = e.target.value;
+    saveFilters();
+    renderList();
+  });
+  el.querySelector("#q-event")?.addEventListener("change", (e) => {
+    state.event = e.target.value;
     saveFilters();
     renderList();
   });
@@ -128,6 +145,9 @@ function filtered() {
   return store.quests.filter((q) => {
     if (state.trader && q.trader !== state.trader) return false;
     if (state.map && !q.maps.some((m) => mapFamily(m) === state.map || m === state.map)) return false;
+    if (state.event === "only" && !q.event) return false;
+    if (state.event === "none" && q.event) return false;
+    if (state.event.startsWith("ev:") && q.eventName !== state.event.slice(3)) return false;
     if (state.kappa && !q.kappa) return false;
     if (state.lk && !q.lightkeeper) return false;
     if (state.hasItems && !q.items.length) return false;
@@ -172,6 +192,7 @@ function questRow(q) {
         ${itemCount ? html`<span class="chip" title="Items inleveren">${itemCount} item${itemCount > 1 ? "s" : ""}</span>` : ""}
         ${q.kappa ? html`<span class="chip kappa" title="Nodig voor Kappa">K</span>` : ""}
         ${q.lightkeeper ? html`<span class="chip lk" title="Nodig voor Lightkeeper">LK</span>` : ""}
+        ${q.event ? html`<span class="chip event" title="Event-quest${q.eventName ? `: ${q.eventName}` : ""}, alleen tijdens het event">Event</span>` : ""}
       </div>
     </div>`;
 }
@@ -207,7 +228,7 @@ function renderDetail() {
             ${maps.filter((m) => !m.variant || !maps.some((x) => x.id === m.family)).map((m) => html`<span class="chip map">${m.name}</span>`)}
             ${q.kappa ? html`<span class="chip kappa">Kappa</span>` : ""}
             ${q.lightkeeper ? html`<span class="chip lk">Lightkeeper</span>` : ""}
-            ${q.event ? html`<span class="chip event">Event</span>` : ""}
+            ${q.event ? html`<span class="chip event" title="Alleen te doen tijdens het event">${q.eventName ? `Event · ${q.eventName}` : "Event"}</span>` : ""}
             ${q.faction && q.faction !== "Any" ? html`<span class="chip">${q.faction}</span>` : ""}
             <span class="chip src" title="${sourceTitle(q)}">${q.source}</span>
           </div>

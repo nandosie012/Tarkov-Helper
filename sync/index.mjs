@@ -21,7 +21,7 @@ import { wikiUrl, looseKey, normTitle } from "./wiki.mjs";
 import { openWikiCache } from "./wiki-cache.mjs";
 import { unknownTemplates } from "./wikitext.mjs";
 import { fetchTarkovDev, wikiTitleFromUrl } from "./tarkovdev.mjs";
-import { parseQuestList, parseQuestPage, parseBossList, parseBossPage, parseMapPage } from "./parse-wiki.mjs";
+import { parseQuestList, parseEventList, parseQuestPage, parseBossList, parseBossPage, parseMapPage } from "./parse-wiki.mjs";
 import { computeBuilds } from "./builds.mjs";
 import { computeTrades } from "./trades.mjs";
 
@@ -66,10 +66,15 @@ async function writeJson(name, value) {
 
 const wiki = await openWikiCache(typeof args["wiki-cache"] === "string" ? path.resolve(root, args["wiki-cache"]) : null);
 log(`json.tarkov.dev (${MODE}) + wiki ophalen${wiki.reused ? " (wiki uit cache van de vorige run)" : ""}...`);
-const [api, questListPage, bossListPage] = await Promise.all([
+const [api, questListPage, bossListPage, eventsPage] = await Promise.all([
   fetchTarkovDev(MODE),
   wiki.wikitext("Quests"),
   wiki.wikitext("Bosses"),
+  // event quests (Halloween, Christmas, ...) are only listed on the Events page
+  wiki.wikitext("Events").catch((err) => {
+    warn(`Wiki-pagina Events niet opgehaald, geen event-quests: ${err.message}`);
+    return null;
+  }),
 ]);
 const tr = api.tr;
 log(`API: ${Object.keys(api.tasks.tasks).length} tasks, ${Object.keys(api.items.items).length} items, ${Object.keys(api.maps.maps).length} maps`);
@@ -108,13 +113,22 @@ for (const t of apiTasks) {
   if (wt && !listKeys.has(looseKey(wt)) && !listKeys.has(looseKey(t._name))) extraTitles.push(wt);
 }
 
+// Event quests are not on the Quests page and usually not in the game-data yet: take them from the
+// Events page for events that started in the last EVENT_DAYS days (older event quests can't be done anymore).
+const EVENT_DAYS = 60;
+const events = eventsPage ? parseEventList(eventsPage.wikitext) : [];
+const eventOfQuest = new Map(); // newest event that names the quest
+for (const ev of events) for (const t of ev.quests) if (!eventOfQuest.has(looseKey(t))) eventOfQuest.set(looseKey(t), ev);
+const recentEvents = events.filter((e) => e.quests.length && e.start && Date.now() - Date.parse(e.start) < EVENT_DAYS * 86400e3);
+const eventTitles = [...new Set(recentEvents.flatMap((e) => e.quests))].filter((t) => !listKeys.has(looseKey(t)));
+
 const bossList = parseBossList(bossListPage.wikitext);
 const apiMaps = Object.values(api.maps.maps);
 const mapPageTitles = [...new Set(apiMaps.map((m) => wikiTitleFromUrl(m.wiki)).filter(Boolean))];
 
-log(`Wiki pagina's ophalen: ${wikiQuestList.length + extraTitles.length} quests, ${bossList.length} bosses, ${mapPageTitles.length} maps...`);
+log(`Wiki pagina's ophalen: ${wikiQuestList.length + extraTitles.length} quests, ${eventTitles.length} uit events (${recentEvents.map((e) => e.name).join(", ") || "geen"}), ${bossList.length} bosses, ${mapPageTitles.length} maps...`);
 const pages = await wiki.pages(
-  [...wikiQuestList.map((q) => q.title), ...extraTitles, ...bossList.map((b) => b.title), ...mapPageTitles],
+  [...wikiQuestList.map((q) => q.title), ...extraTitles, ...eventTitles, ...bossList.map((b) => b.title), ...mapPageTitles],
   { onProgress: (done, total) => (done % 200 === 0 || done === total) && log(`  wiki ${done}/${total}`) }
 );
 
@@ -341,7 +355,7 @@ const questBySlug = new Map();
 const usedTasks = new Set();
 const questByTdevId = new Map();
 
-function buildQuest({ title, trader: wikiTrader, inList }) {
+function buildQuest({ title, trader: wikiTrader, inList, fromEvent = false }) {
   let page = pages.get(normTitle(title));
   // a wiki link can point at a non-quest page (skill, disambiguation): ignore those
   if (page && !inList && !/\{\{\s*Infobox[ _]quest/i.test(page.wikitext)) page = null;
@@ -409,13 +423,17 @@ function buildQuest({ title, trader: wikiTrader, inList }) {
 
   const id = slug(pageTitle);
   if (questBySlug.has(id)) return;
+  const isEvent = !!parsed?.event || fromEvent;
+  const ev = isEvent ? eventOfQuest.get(looseKey(pageTitle)) ?? eventOfQuest.get(looseKey(title)) : null;
   const quest = {
     id,
     title: pageTitle,
     wiki: page ? wikiUrl(page.title) : task?.wikiLink ?? null,
     source: page && task ? "wiki+api" : page ? "wiki" : "api",
     inWikiList: !!inList,
-    event: parsed?.event ?? false,
+    event: isEvent,
+    eventName: ev?.name ?? null,
+    eventStart: ev?.start ?? null,
     trader: traderRec?.name ?? wikiTrader ?? parsed?.infobox.givenBy ?? "Onbekend",
     traderId: traderRec?.id ?? null,
     tdevId: task?.id ?? null,
@@ -480,6 +498,13 @@ for (const entry of wikiQuestList) {
   buildQuest({ ...entry, inList: true });
 }
 if (skippedForSeason) log(`Seizoen: ${skippedForSeason} reguliere quests zitten niet in het seizoen`);
+for (const title of eventTitles) {
+  const page = pages.get(normTitle(title));
+  // the "has been added" bullets can link other pages too (traders, maps): only real quest pages
+  if (!page || !/\{\{\s*Infobox[ _]quest/i.test(page.wikitext)) continue;
+  buildQuest({ title, inList: false, fromEvent: true });
+}
+log(`Event-quests: ${quests.filter((q) => q.event).length} (${recentEvents.map((e) => `${e.name} ${quests.filter((q) => q.eventName === e.name).length}`).join(", ") || "geen recente events"})`);
 for (const t of apiTasks) {
   if (usedTasks.has(t.id)) continue;
   const wt = wikiTitleFromUrl(t.wikiLink);
@@ -931,7 +956,9 @@ const meta = {
     builds: builds.weapons.length,
     tradeProfits: trades.filter((t) => t.profit > 0).length,
     wikiImages: imageUrls.size,
+    eventQuests: quests.filter((q) => q.event).length,
   },
+  events: recentEvents.map((e) => ({ name: e.name, start: e.start, quests: quests.filter((q) => q.eventName === e.name).length })),
   questsWikiOnly: unmatchedWiki,
   questsApiOnly: apiOnly,
   questsWithoutPins: withoutPins,

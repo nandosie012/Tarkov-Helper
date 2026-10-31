@@ -30,6 +30,31 @@ export function parseQuestList(wikitext) {
   return out;
 }
 
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+/**
+ * "Events" page: one "==Halloween 2026 (29 October 2026)==" section per event, newest first.
+ * Returns [{ name, start (YYYY-MM-DD or null), quests: [titles] }]; quests come from the
+ * "Quest [[X]] has been added" bullets, so they may still contain the odd non-quest link.
+ */
+export function parseEventList(wikitext) {
+  const text = stripNoise(wikitext);
+  const out = [];
+  for (const section of text.split(/^==(?=[^=])/m).slice(1)) {
+    const heading = section.slice(0, section.indexOf("==")).trim();
+    const m = /^(.*?)\s*\((\d{1,2}) ([A-Za-z]+) (\d{4})\)$/.exec(heading);
+    const month = m ? MONTHS.indexOf(lower(m[3])) : -1;
+    const start = month >= 0 ? `${m[4]}-${String(month + 1).padStart(2, "0")}-${m[2].padStart(2, "0")}` : null;
+    const quests = [];
+    for (const line of section.split("\n")) {
+      if (!/^\*.*\bquests?\b.*\b(added|available)\b/i.test(line)) continue;
+      for (const l of links(line)) if (!quests.includes(l.target)) quests.push(l.target);
+    }
+    out.push({ name: m ? m[1].trim() : heading, start, quests });
+  }
+  return out;
+}
+
 function linkTargets(value) {
   return links(value).map((l) => l.target);
 }

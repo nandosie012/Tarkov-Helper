@@ -113,7 +113,9 @@ function render() {
           <div class="stat"><b>${c.bosses}</b><span>Bosses</span></div>
           <div class="stat"><b>${c.maps}</b><span>Maps</span></div>
           ${c.ammo ? html`<div class="stat"><b>${c.ammo}</b><span>Soorten ammo</span></div>` : ""}
+          ${c.eventQuests ? html`<div class="stat"><b>${c.eventQuests}</b><span>Event-quests</span></div>` : ""}
         </div>
+        ${content.events?.length ? html`<p class="muted" style="margin:10px 0 0">Recente events (van de wiki-pagina <a href="https://escapefromtarkov.fandom.com/wiki/Events" target="_blank" rel="noopener">Events</a>): ${content.events.map((e, i) => html`${i ? " · " : ""}<b style="color:var(--text)">${e.name}</b> sinds ${new Date(e.start).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })} (${e.quests} quests)`)}</p>` : ""}
       </div>
       ${content.questsWikiOnly?.length ? html`<div class="card"><h3>Alleen op de wiki <span class="count">${content.questsWikiOnly.length}</span></h3>
         <p class="muted" style="margin-top:0">Staan op de wiki maar (nog) niet in de game-data: nieuwe of event-quests, Arena/Ref-quests, prestige. Ze zijn wel volledig opgenomen, alleen zonder kaartcoördinaten.</p>
